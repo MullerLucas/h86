@@ -1,5 +1,7 @@
 //! https://edge.edx.org/c4x/BITSPilani/EEE231/asset/8086_family_Users_Manual_1_.pdf - page 162
 
+const std = @import("std");
+
 // ----------------------------------------------
 
 pub const InstrType = union(enum){
@@ -19,3 +21,7 @@ pub const MovInstrSubType = enum {
 };
 
 // ----------------------------------------------
+
+pub const InstrBuffer = struct {
+    stream: std.ArrayList(InstrType),
+};
