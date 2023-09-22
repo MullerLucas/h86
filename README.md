@@ -1,4 +1,4 @@
-# edu_perfaware
+# h86 - 8086 Emulator (from hell)
 
 ## Resources
 
