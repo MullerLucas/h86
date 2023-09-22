@@ -26,25 +26,6 @@ pub const Opcode = enum(u8) {
     }
 };
 
-// const register_ax = 0b000;
-// const register_cx = 0b001;
-// const register_dx = 0b010;
-// const register_bx = 0b011;
-// const register_sp = 0b100;
-// const register_bp = 0b101;
-// const register_si = 0b110;
-// const register_di = 0b111;
-//
-// pub const Register = enum(u3) {
-//     ax = register_ax,
-//     bx = register_bx,
-//     cx = register_cx,
-//     dx = register_dx,
-//     sp = register_sp,
-//     bp = register_bp,
-//     si = register_si,
-//     di = register_di,
-// };
 
 fn decode_register(reg: u3, w: u1) []const u8 {
     if (w == 0) {
@@ -78,6 +59,14 @@ const mask_w   = 0b0000_0001;
 const mask_mod = 0b1100_0000;
 const mask_reg = 0b0011_1000;
 const mask_rm  = 0b0000_0111;
+
+const shift_op : u3 = 2;
+const shift_d  : u3 = 1;
+const shift_w  : u3 = 0;
+const shift_mod: u3 = 6;
+const shift_reg: u3 = 3;
+const shift_rm : u3 = 0;
+
 
 pub const InstrDecoder = struct {
 
