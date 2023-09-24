@@ -17,7 +17,7 @@ pub fn main() !void {
     var decoder = try InstrDecoder.init(listing_0038);
 
     try stdout.print("bits 16\n\n", .{});
-    while (decoder.next()) |op| {
+    while (try decoder.next()) |op| {
         try stdout.print("{any}\n", .{op});
     }
     try bw.flush();

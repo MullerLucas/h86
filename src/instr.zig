@@ -9,12 +9,12 @@ const StackArray = corez.collections.StackArray;
 
 // ----------------------------------------------
 
-pub const OpInfo = struct {
-    opcode: u8,
-    mask:   u8,
-    bits:   u8,
+pub const InstrEncoding = struct {
+    value: u8,
+    mask:  u8,
+    bits:  u8,
 
-    pub fn init(comptime T: type, comptime opcode: u8) OpInfo {
+    pub fn init(comptime T: type, comptime opcode: u8) InstrEncoding {
         const type_info = @typeInfo(T);
 
         const int_info: std.builtin.Type.Int = switch(type_info) {
@@ -37,10 +37,10 @@ pub const OpInfo = struct {
             mask |= 1 << i;
         }
 
-        return OpInfo {
-            .opcode = opcode,
-            .bits   = bits,
-            .mask   = mask,
+        return InstrEncoding {
+            .value = opcode,
+            .bits  = bits,
+            .mask  = mask,
         };
     }
 };
@@ -51,7 +51,7 @@ pub const OpInfo = struct {
 pub const InstrOp = union(enum){
     mov: InstrMovOp,
 
-    pub const infos: [1][]OpInfo = .{
+    pub const infos: [1][]InstrEncoding = .{
         InstrMovOp.info_slice(),
     };
 
@@ -71,39 +71,55 @@ pub const InstrMovOp = enum(u8) {
     register_or_memeory_to_segment_register,
     segment_register_to_register_or_memory,
 
-    pub const op_count = 7;
-    pub const infos: [op_count]OpInfo = .{
-        OpInfo.init(u6, 0b1000_10),
-        OpInfo.init(u7, 0b1100_011),
-        OpInfo.init(u4, 0b1011),
-        OpInfo.init(u7, 0b1010_000),
-        OpInfo.init(u7, 0b1010_001),
-        OpInfo.init(u8, 0b1000_1110),
-        OpInfo.init(u8, 0b1000_1100),
+    pub const encodings = [_]InstrEncoding {
+        InstrEncoding.init(u6, 0b1000_10),
+        InstrEncoding.init(u7, 0b1100_011),
+        InstrEncoding.init(u4, 0b1011),
+        InstrEncoding.init(u7, 0b1010_000),
+        InstrEncoding.init(u7, 0b1010_001),
+        InstrEncoding.init(u8, 0b1000_1110),
+        InstrEncoding.init(u8, 0b1000_1100),
     };
 };
 
 // ----------------------------------------------
 
 pub const InstrMod = enum (u2) {
-    memory_mode_no_displacement     = 0b00,
-    memory_mode_8_bit_displacement  = 0b01,
-    memory_mode_16_bit_displacement = 0b10,
-    register_mode_no_displacement   = 0b11,
+    memory_mode_no_displacement,
+    memory_mode_8_bit_displacement,
+    memory_mode_16_bit_displacement,
+    register_mode_no_displacement,
+
+    pub const encodings = [_]InstrEncoding {
+        InstrEncoding.init(u2, 0b00),
+        InstrEncoding.init(u2, 0b01),
+        InstrEncoding.init(u2, 0b10),
+        InstrEncoding.init(u2, 0b11),
+    };
 };
 
 // ----------------------------------------------
 
 pub const InstrD = enum (u1) {
-    reg_is_source = 0b0,
-    reg_is_dest   = 0b1,
+    reg_is_source,
+    reg_is_dest,
+
+    pub const encodings = [_]InstrEncoding {
+        InstrEncoding.init(u1, 0b0),
+        InstrEncoding.init(u1, 0b1),
+    };
 };
 
 // ----------------------------------------------
 
 pub const InstrW = enum (u1) {
-    byte_data = 0b0,
-    word_data = 0b1,
+    byte_data,
+    word_data,
+
+    pub const encodings = [_]InstrEncoding {
+        InstrEncoding.init(u1, 0b0),
+        InstrEncoding.init(u1, 0b1),
+    };
 };
 
 // ----------------------------------------------
