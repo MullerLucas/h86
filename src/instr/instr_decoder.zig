@@ -1,11 +1,14 @@
 const std = @import("std");
 
-const instr       = @import("../instr.zig");
-const InstrOp     = instr.InstrOp;
-const InstrMoveOp = instr.InstrMovOp;
-const InstrD      = instr.InstrD;
-const InstrW      = instr.InstrW;
-const InstrMod    = instr.InstrMod;
+const instr        = @import("../instr.zig");
+const InstrOp      = instr.InstrOp;
+const InstrMoveOp  = instr.InstrMovOp;
+const InstrD       = instr.InstrD;
+const InstrW       = instr.InstrW;
+const InstrMod     = instr.InstrMod;
+const InstrReg     = instr.InstrReg;
+const InstrByteReg = instr.InstrByteReg;
+const InstrWordReg = instr.InstrWordReg;
 
 // ----------------------------------------------
 
@@ -105,16 +108,14 @@ pub const InstrDecoder = struct {
         return null;
     }
 
-    // ------------------------------------------
-
-    fn decode_instr_enum(comptime T: type, byte: u8) ?T {
+    fn decode_instr_enum(comptime T: type, byte: u8, offset: u3) ?T {
         const type_info = @typeInfo(T);
         if (type_info != .Enum) {
             @compileError("not an enum");
         }
 
         for (T.encodings, 0..) |enc, i| {
-            const value = byte >> @as(u3, @intCast(8 - enc.bits));
+            const value = (byte >> offset) & enc.mask;
             if (value == enc.value) {
                 return @enumFromInt(i);
             }
@@ -122,19 +123,31 @@ pub const InstrDecoder = struct {
         return null;
     }
 
-    // ------------------------------------------
+    fn decode_reg(byte: u8, offset: u3, w: InstrW) !InstrReg {
+        return switch (w) {
+            .byte_data => InstrReg { .byte = InstrDecoder.decode_instr_enum(InstrByteReg, byte, offset) orelse return DecodeError.InvalidEncoding },
+            .word_data => InstrReg { .word = InstrDecoder.decode_instr_enum(InstrWordReg, byte, offset) orelse return DecodeError.InvalidEncoding },
+        };
+    }
 
     fn decode_op_move(iter: *InstrIter) !void {
         const b1 = try iter.try_next();
         const b2 = try iter.try_next();
 
-        const d = InstrDecoder.decode_instr_enum(InstrD, b1);
-        const w = InstrDecoder.decode_instr_enum(InstrW, b1);
+        const d = InstrDecoder.decode_instr_enum(InstrD, b1, 1) orelse return DecodeError.InvalidEncoding;
+        const w = InstrDecoder.decode_instr_enum(InstrW, b1, 0) orelse return DecodeError.InvalidEncoding;
 
-        const mod = InstrDecoder.decode_instr_enum(InstrMod, b2);
+        const mod = InstrDecoder.decode_instr_enum(InstrMod, b2, 6);
+        _ = mod;
 
-        std.debug.print("BYTE-1: {b} => D:{any} | W: {any}\n", .{b1, d, w});
-        std.debug.print("BYTE-2: {b} => MOD:{any}\n", .{b1, mod});
+        const reg_offsets = switch(d) {
+            .reg_is_source => .{ @as(u3, 0), @as(u3, 3) },
+            .reg_is_dest   => .{ @as(u3, 3), @as(u3, 0) },
+        };
+        const dest_reg   = try InstrDecoder.decode_reg(b2, reg_offsets[0], w);
+        const source_reg = try InstrDecoder.decode_reg(b2, reg_offsets[1], w);
+
+        std.debug.print("mov {s}, {s}\n", .{dest_reg.to_asm_str(), source_reg.to_asm_str()});
     }
 
     fn decode_op_move_register_or_memory_to_or_from_register() InstrMoveOp {

@@ -55,7 +55,7 @@ pub const InstrOp = union(enum){
         InstrMovOp.info_slice(),
     };
 
-    pub inline fn mnemonic(self: InstrOp) []const u8 {
+    pub inline fn to_asm_str(self: InstrOp) []const u8 {
         return @tagName(self);
     }
 };
@@ -127,6 +127,13 @@ pub const InstrW = enum (u1) {
 pub const InstrReg = union(enum) {
     byte: InstrByteReg,
     word: InstrWordReg,
+
+    pub fn to_asm_str(self: InstrReg) []const u8 {
+        return switch(self) {
+            .byte => |b| b.to_asm_str(),
+            .word => |w| w.to_asm_str(),
+        };
+    }
 };
 
 pub const InstrByteReg = enum (u3) {
@@ -138,6 +145,21 @@ pub const InstrByteReg = enum (u3) {
     ch = 0b101,
     dh = 0b110,
     bh = 0b111,
+
+    pub const encodings = [_]InstrEncoding {
+        InstrEncoding.init(u3, 0b000),
+        InstrEncoding.init(u3, 0b001),
+        InstrEncoding.init(u3, 0b010),
+        InstrEncoding.init(u3, 0b011),
+        InstrEncoding.init(u3, 0b100),
+        InstrEncoding.init(u3, 0b101),
+        InstrEncoding.init(u3, 0b110),
+        InstrEncoding.init(u3, 0b111),
+    };
+
+    pub inline fn to_asm_str(self: InstrByteReg) []const u8 {
+        return @tagName(self);
+    }
 };
 
 pub const InstrWordReg = enum (u3) {
@@ -149,6 +171,21 @@ pub const InstrWordReg = enum (u3) {
     bp = 0b101,
     si = 0b110,
     di = 0b111,
+
+    pub const encodings = [_]InstrEncoding {
+        InstrEncoding.init(u3, 0b000),
+        InstrEncoding.init(u3, 0b001),
+        InstrEncoding.init(u3, 0b010),
+        InstrEncoding.init(u3, 0b011),
+        InstrEncoding.init(u3, 0b100),
+        InstrEncoding.init(u3, 0b101),
+        InstrEncoding.init(u3, 0b110),
+        InstrEncoding.init(u3, 0b111),
+    };
+
+    pub inline fn to_asm_str(self: InstrWordReg) []const u8 {
+        return @tagName(self);
+    }
 };
 
 // ----------------------------------------------
