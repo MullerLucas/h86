@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const corez = @import("corez");
+
 const instr        = @import("instr.zig");
 const InstrMovOp   = instr.InstrMov;
 const InstrDecoder = instr.InstrDecoder;
@@ -16,10 +18,14 @@ pub fn main() !void {
 
     var decoder = try InstrDecoder.init(listing_0038);
 
+    var buf: [1024]u8 = undefined;
+    var cur = corez.mem.StrCursor.from_slice(buf[0..]);
+
     try stdout.print("bits 16\n\n", .{});
     while (try decoder.next()) |i| {
-        // try stdout.print("{any}\n", .{op});
-        try stdout.print("{s}\n", .{i.to_asm_string()});
+        try i.to_asm_str(&cur);
+        try stdout.print("{s}\n", .{cur.to_slice()});
+        cur.reset();
     }
     try bw.flush();
 }

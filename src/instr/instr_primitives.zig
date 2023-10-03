@@ -1,6 +1,9 @@
 const std   = @import("std");
 const instr = @import("../instr.zig");
 
+const corez     = @import("corez");
+const StrCursor = corez.mem.StrCursor;
+
 
 pub const Encoding = struct {
     value: u8,
@@ -199,6 +202,19 @@ pub const WordRegister = enum (u3) {
 
 // ----------------------------------------------
 
+pub const EffectiveAddressCalc = union(enum) {
+
+};
+
+// ----------------------------------------------
+
+pub const RegisterMemory = union(enum) {
+    reg: Register,
+    mem: EffectiveAddressCalc,
+};
+
+// ----------------------------------------------
+
 pub const Displacement = union(enum) {
     byte: u8,
     word: u16,
@@ -219,10 +235,10 @@ pub const Instr = union(enum) {
         };
     }
 
-    pub fn to_asm_string(self: *const Instr) []const u8 {
-        return switch (self.*) {
-            inline else  => |i| return i.to_asm_string(),
-        };
+    pub fn to_asm_str(self: *const Instr, cur: *StrCursor) !void {
+        switch (self.*) {
+            inline else  => |i| return i.to_asm_str(cur),
+        }
     }
 };
 

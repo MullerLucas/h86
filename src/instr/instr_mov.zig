@@ -1,4 +1,8 @@
+const std = @import("std");
 const instr = @import("../instr.zig");
+
+const corez = @import("corez");
+const StrCursor = corez.mem.StrCursor;
 
 // ----------------------------------------------
 
@@ -40,9 +44,36 @@ pub const InstrMov = union(enum) {
     register_or_memeory_to_segment_register,
     segment_register_to_register_or_memory,
 
-    pub fn to_asm_string(self: *const InstrMov) []const u8 {
-        _ = self;
-        return "mov";
+    pub fn to_asm_str(self: *const InstrMov, cur: *StrCursor) !void {
+        cur.push("mov ");
+
+        switch (self.*) {
+            .register_or_memory_to_or_from_register => |i| {
+                switch (i.mod) {
+                    // .memory_mode_no_displacement,
+                    // .memory_mode_8_bit_displacement,
+                    // .memory_mode_16_bit_displacement,
+                    .register_mode_no_displacement => {
+                        switch (i.d) {
+                            .reg_is_source => {
+                                cur.push(i.reg.to_asm_str());
+                                cur.push(" ");
+                                cur.push(i.rm.to_asm_str());
+                            },
+                            .reg_is_dest   => {
+                                cur.push(i.reg.to_asm_str());
+                                cur.push(" ");
+                                cur.push(i.rm.to_asm_str());
+                            },
+                        }
+                    },
+                    else => cur.push("todo"),
+                }
+            },
+            else => {
+                try cur.try_push("todo");
+            }
+        }
     }
 
     pub fn decode(iter: *instr.ByteIter) !InstrMov {
@@ -53,23 +84,12 @@ pub const InstrMov = union(enum) {
         const b1 = try iter.try_next();
         const b2 = try iter.try_next();
 
-        const d = instr.InstrDecoder.decode_instr_enum(instr.Direction, b1, 1) orelse return instr.DecodeError.InvalidEncoding;
-        const w = instr.InstrDecoder.decode_instr_enum(instr.Width, b1, 0)     orelse return instr.DecodeError.InvalidEncoding;
-
+        const d   = instr.InstrDecoder.decode_instr_enum(instr.Direction, b1, 1) orelse return instr.DecodeError.InvalidEncoding;
+        const w   = instr.InstrDecoder.decode_instr_enum(instr.Width, b1, 0)     orelse return instr.DecodeError.InvalidEncoding;
         const mod = instr.InstrDecoder.decode_instr_enum(instr.MemMode, b2, 6) orelse return instr.DecodeError.InvalidEncoding;
-
-        // const reg_offsets = switch(d) {
-        //     .reg_is_source => .{ @as(u3, 0), @as(u3, 3) },
-        //     .reg_is_dest   => .{ @as(u3, 3), @as(u3, 0) },
-        // };
-        // const dest_reg   = try InstrDecoder.decode_reg(b2, reg_offsets[0], w);
-        // _ = dest_reg;
-        // const source_reg = try InstrDecoder.decode_reg(b2, reg_offsets[1], w);
-        // _ = source_reg;
 
         const reg = try instr.Register.decode(b2, 0, w);
         const rm  = try instr.Register.decode(b2, 3, w);
-        // std.debug.print("mov {s}, {s}\n", .{dest_reg.to_asm_str(), source_reg.to_asm_str()});
 
         return InstrMov { .register_or_memory_to_or_from_register = .{
             .d = d,
