@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const instr        = @import("instr.zig");
-const InstrMovOp   = instr.InstrMovOp;
+const InstrMovOp   = instr.InstrMov;
 const InstrDecoder = instr.InstrDecoder;
 
 const listing_0037 = "./resources/asm/listing_0037_single_register_mov";
@@ -17,8 +17,9 @@ pub fn main() !void {
     var decoder = try InstrDecoder.init(listing_0038);
 
     try stdout.print("bits 16\n\n", .{});
-    while (try decoder.next()) |op| {
-        try stdout.print("{any}\n", .{op});
+    while (try decoder.next()) |i| {
+        // try stdout.print("{any}\n", .{op});
+        try stdout.print("{s}\n", .{i.to_asm_string()});
     }
     try bw.flush();
 }
