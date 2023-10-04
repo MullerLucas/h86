@@ -16,7 +16,7 @@ pub fn main() !void {
     var bw = std.io.bufferedWriter(stdout_file);
     const stdout = bw.writer();
 
-    var decoder = try InstrDecoder.init(listing_0038);
+    var decoder = try InstrDecoder.init(listing_0039);
 
     var buf: [1024]u8 = undefined;
     var cur = corez.mem.StrCursor.from_slice(buf[0..]);

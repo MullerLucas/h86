@@ -18,6 +18,7 @@ pub const DecodeError = error {
     InvalidOpcode,
     UnsupportedMod,
     InvalidEncoding,
+    NotImplemented,
 };
 
 // ----------------------------------------------
@@ -74,6 +75,7 @@ pub const InstrDecoder = struct {
     }
 
     pub fn next(self: *InstrDecoder) !?Instr {
+        std.debug.print("next: 0b{b}\n", .{self.iter.peek_unchecked()});
         return instr.Instr.decode(&self.iter);
     }
 
@@ -84,7 +86,8 @@ pub const InstrDecoder = struct {
         }
 
         for (T.encodings, 0..) |enc, i| {
-            const value = (byte >> offset) & enc.mask;
+            const shift: u3 = @intCast(8 - enc.bits - offset);
+            const value = (byte >> shift) & enc.mask;
             if (value == enc.value) {
                 return @enumFromInt(i);
             }

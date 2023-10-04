@@ -215,9 +215,30 @@ pub const RegisterMemory = union(enum) {
 
 // ----------------------------------------------
 
-pub const Displacement = union(enum) {
+pub const Scalar = union(enum) {
     byte: u8,
     word: u16,
+
+    pub fn decode(iter: *instr.ByteIter, w: Width) !Scalar {
+        return switch (w) {
+            .byte_data => blk: {
+                const b1 = try iter.try_next();
+                break :blk Scalar { .byte = @intCast(b1) };
+            },
+            .word_data => blk: {
+                const b1 = try iter.try_next();
+                const b2 = try iter.try_next();
+                const val: u16 = @as(u16, b1) | @as(u16, b2) << 8;
+                break :blk Scalar { .word = val };
+            },
+        };
+    }
+
+    pub fn to_asm_str(self: *const Scalar, buf: []u8) ![]const u8 {
+        return switch (self.*) {
+            inline else  => |i| try std.fmt.bufPrint(buf, "{d}", .{i}),
+        };
+    }
 };
 
 // ----------------------------------------------
