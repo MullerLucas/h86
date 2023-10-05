@@ -76,10 +76,13 @@ pub const InstrDecoder = struct {
 
     pub fn next(self: *InstrDecoder) !?Instr {
         std.debug.print("next: 0b{b}\n", .{self.iter.peek_unchecked()});
-        return instr.Instr.decode(&self.iter);
+        if (self.iter.peek() == null) { return null; }
+
+        // return try instr.Instr.decode(&self.iter);
+        return instr.Instr.decode(&self.iter) catch null;
     }
 
-    pub fn decode_instr_enum(comptime T: type, byte: u8, offset: u3) ?T {
+    pub fn decode_instr_enum(comptime T: type, byte: u8, offset: u3) !T {
         const type_info = @typeInfo(T);
         if (type_info != .Enum) {
             @compileError("not an enum");
@@ -92,7 +95,8 @@ pub const InstrDecoder = struct {
                 return @enumFromInt(i);
             }
         }
-        return null;
+
+        return instr.DecodeError.InvalidEncoding;
     }
 
 };

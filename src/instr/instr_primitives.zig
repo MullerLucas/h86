@@ -55,7 +55,7 @@ pub const Opcode = union(enum){
         return @tagName(self);
     }
 
-    pub fn decode(byte: u8) ?Opcode {
+    pub fn decode(byte: u8) !Opcode {
         const union_info: std.builtin.Type.Union = blk: {
             const type_info = @typeInfo(Opcode);
             break :blk switch (type_info) {
@@ -65,16 +65,14 @@ pub const Opcode = union(enum){
         };
 
         inline for (union_info.fields) |field| {
-            const sub_res = try Opcode.decode_sub(field.type, byte);
-            if (sub_res) |sub| {
-                return @unionInit(Opcode, field.name, sub);
-            }
+            const sub = try Opcode.decode_sub(field.type, byte);
+            return @unionInit(Opcode, field.name, sub);
         }
 
-        return null;
+        return instr.DecodeError.InvalidEncoding;
     }
 
-    fn decode_sub(comptime T: type, byte: u8) !?T {
+    fn decode_sub(comptime T: type, byte: u8) !T {
         for (T.encodings, 0..) |enc, i| {
             const shift: u3 = @intCast(8 - enc.bits);
             const op = byte >> shift;
@@ -82,7 +80,7 @@ pub const Opcode = union(enum){
                 return @enumFromInt(i);
             }
         }
-        return null;
+        return instr.DecodeError.InvalidEncoding;
     }
 
 };
@@ -118,13 +116,20 @@ pub const Direction = enum (u1) {
 // ----------------------------------------------
 
 pub const Width = enum (u1) {
-    byte_data,
-    word_data,
+    byte,
+    word,
 
     pub const encodings = [_]Encoding {
         Encoding.init(u1, 0b0),
         Encoding.init(u1, 0b1),
     };
+
+    pub fn is_byte(self: Width) bool {
+        return switch (self) {
+            .byte => true,
+            .word => false,
+        };
+    }
 };
 
 // ----------------------------------------------
@@ -142,8 +147,8 @@ pub const Register = union(enum) {
 
     pub fn decode(byte: u8, offset: u3, w: Width) !Register {
         return switch (w) {
-            .byte_data => Register { .byte = instr.InstrDecoder.decode_instr_enum(ByteRegister, byte, offset) orelse return instr.DecodeError.InvalidEncoding },
-            .word_data => Register { .word = instr.InstrDecoder.decode_instr_enum(WordRegister, byte, offset) orelse return instr.DecodeError.InvalidEncoding },
+            .byte => Register { .byte = try instr.InstrDecoder.decode_instr_enum(ByteRegister, byte, offset) },
+            .word => Register { .word = try instr.InstrDecoder.decode_instr_enum(WordRegister, byte, offset) },
         };
     }
 };
@@ -202,8 +207,58 @@ pub const WordRegister = enum (u3) {
 
 // ----------------------------------------------
 
-pub const EffectiveAddressCalc = union(enum) {
+pub const EffectiveAddressCalc = enum {
+    bx_plus_si,
+    bx_plus_di,
+    bp_plus_si,
+    bp_plus_di,
+    si,
+    di,
+    bp_or_direct_address,
+    bx,
 
+    pub const encodings = [_]Encoding {
+        Encoding.init(u3, 0b000),
+        Encoding.init(u3, 0b001),
+        Encoding.init(u3, 0b010),
+        Encoding.init(u3, 0b011),
+        Encoding.init(u3, 0b100),
+        Encoding.init(u3, 0b101),
+        Encoding.init(u3, 0b110),
+        Encoding.init(u3, 0b111),
+    };
+
+    const asm_strs = [_][]const u8 {
+        "bx + si",
+        "bx + di",
+        "bp + si",
+        "bp + di",
+        "si",
+        "di",
+        "bp",
+        "bx",
+    };
+
+    pub fn to_asm_str(self: EffectiveAddressCalc, buf: []u8, mod: MemMode, val: ?Scalar) ![]const u8 {
+        return switch (mod) {
+            .register_mode_no_displacement => return instr.DecodeError.InvalidEncoding,
+            .memory_mode_no_displacement   => switch (self) {
+                .bp_or_direct_address => blk: {
+                    const v = val orelse return instr.DecodeError.InvalidEncoding;
+                    break :blk try std.fmt.bufPrint(buf, "[{d}]", .{v.to_u16()});
+                },
+                else => try std.fmt.bufPrint(buf, "[{s}]", .{EffectiveAddressCalc.asm_strs[@intFromEnum(self)]}),
+            },
+            else => blk: {
+                const v = val orelse return instr.DecodeError.InvalidEncoding;
+                break :blk try std.fmt.bufPrint(buf, "[{s} + {d}]", .{EffectiveAddressCalc.asm_strs[@intFromEnum(self)], v.to_u16()});
+            },
+        };
+    }
+
+    pub fn decode(byte: u8, offset: u3) !EffectiveAddressCalc {
+        return instr.InstrDecoder.decode_instr_enum(EffectiveAddressCalc, byte, offset);
+    }
 };
 
 // ----------------------------------------------
@@ -211,6 +266,29 @@ pub const EffectiveAddressCalc = union(enum) {
 pub const RegisterMemory = union(enum) {
     reg: Register,
     mem: EffectiveAddressCalc,
+
+    pub fn decode(byte: u8, offset: u3, mod: MemMode, w: Width) !RegisterMemory {
+        return switch (mod) {
+            .memory_mode_no_displacement,
+            .memory_mode_8_bit_displacement,
+            .memory_mode_16_bit_displacement => RegisterMemory { .mem = try EffectiveAddressCalc.decode(byte, offset) },
+            .register_mode_no_displacement   => RegisterMemory { .reg = try Register.decode(byte, offset, w) },
+        };
+    }
+
+    pub fn to_asm_str(self: RegisterMemory, buf: []u8, mod: MemMode, val: ?Scalar) ![]const u8 {
+        return switch (self) {
+            .reg => |r| r.to_asm_str(),
+            .mem => |m| m.to_asm_str(buf, mod, val),
+        };
+    }
+
+    pub fn is_effectife_address_calc(self: RegisterMemory, val: EffectiveAddressCalc) bool {
+        return switch (self) {
+            .reg => false,
+            .mem => |m| m == val,
+        };
+    }
 };
 
 // ----------------------------------------------
@@ -219,24 +297,27 @@ pub const Scalar = union(enum) {
     byte: u8,
     word: u16,
 
-    pub fn decode(iter: *instr.ByteIter, w: Width) !Scalar {
-        return switch (w) {
-            .byte_data => blk: {
-                const b1 = try iter.try_next();
-                break :blk Scalar { .byte = @intCast(b1) };
-            },
-            .word_data => blk: {
-                const b1 = try iter.try_next();
-                const b2 = try iter.try_next();
-                const val: u16 = @as(u16, b1) | @as(u16, b2) << 8;
-                break :blk Scalar { .word = val };
-            },
-        };
+    pub fn decode(iter: *instr.ByteIter, is_byte: bool) !Scalar {
+        if (is_byte) {
+            const b1 = try iter.try_next();
+            return Scalar { .byte = @intCast(b1) };
+        } else {
+            const b1 = try iter.try_next();
+            const b2 = try iter.try_next();
+            const val: u16 = @as(u16, b1) | @as(u16, b2) << 8;
+            return Scalar { .word = val };
+        }
     }
 
     pub fn to_asm_str(self: *const Scalar, buf: []u8) ![]const u8 {
         return switch (self.*) {
             inline else  => |i| try std.fmt.bufPrint(buf, "{d}", .{i}),
+        };
+    }
+
+    pub fn to_u16(self: *const Scalar) u16 {
+        return switch (self.*) {
+            inline else  => |i| @intCast(i),
         };
     }
 };
@@ -246,13 +327,12 @@ pub const Scalar = union(enum) {
 pub const Instr = union(enum) {
     mov: instr.InstrMov,
 
-    pub fn decode(iter: *instr.ByteIter) !?Instr {
-        const b1     = iter.peek()             orelse return null;
-        const opcode = instr.Opcode.decode(b1) orelse return null;
+    pub fn decode(iter: *instr.ByteIter) !Instr {
+        const b1     = iter.peek() orelse return instr.DecodeError.InvalidEncoding;
+        const opcode = try instr.Opcode.decode(b1);
 
         return switch (opcode) {
             Opcode.mov => Instr { .mov = try instr.InstrMov.decode(iter) },
-            // else       => instr.DecodeError.InvalidEncoding,
         };
     }
 

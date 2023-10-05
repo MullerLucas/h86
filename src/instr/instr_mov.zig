@@ -34,7 +34,7 @@ pub const InstrMov = union(enum) {
         w:    instr.Width,
         mod:  instr.MemMode,
         reg:  instr.Register,
-        rm:   instr.Register,
+        rm:   instr.RegisterMemory,
         disp: ?instr.Scalar,
     },
     immediate_to_register_or_memory,
@@ -58,15 +58,25 @@ pub const InstrMov = union(enum) {
                 switch (i.mod) {
                     .memory_mode_no_displacement => {
                         cur.push("; memory_mode_no_displacement\n");
-                        cur.push("todo");
+                        cur.push("mov ");
+                        cur.push(i.reg.to_asm_str());
+                        cur.push(", ");
+                        cur.push(try i.rm.to_asm_str(&buf, i.mod, i.disp));
                     },
                     .memory_mode_8_bit_displacement => {
+                        std.debug.print("TEST: {any}", .{i});
                         cur.push("; memory_mode_8_bit_displacement\n");
-                        cur.push("todo");
+                        cur.push("mov ");
+                        cur.push(i.reg.to_asm_str());
+                        cur.push(", ");
+                        cur.push(try i.rm.to_asm_str(&buf, i.mod, i.disp));
                     },
                     .memory_mode_16_bit_displacement => {
                         cur.push("; memory_mode_16_bit_displacement\n");
-                        cur.push("todo");
+                        cur.push("mov ");
+                        cur.push(i.reg.to_asm_str());
+                        cur.push(", ");
+                        cur.push(try i.rm.to_asm_str(&buf, i.mod, i.disp));
                     },
                     .register_mode_no_displacement => {
                         cur.push("; register_mode_no_displacement\n");
@@ -76,12 +86,12 @@ pub const InstrMov = union(enum) {
                             .reg_is_source => {
                                 cur.push(i.reg.to_asm_str());
                                 cur.push(", ");
-                                cur.push(i.rm.to_asm_str());
+                                cur.push(try i.rm.to_asm_str(&buf, i.mod, i.disp));
                             },
                             .reg_is_dest   => {
                                 cur.push(i.reg.to_asm_str());
                                 cur.push(", ");
-                                cur.push(i.rm.to_asm_str());
+                                cur.push(try i.rm.to_asm_str(&buf, i.mod, i.disp));
                             },
                         }
                     },
@@ -118,8 +128,7 @@ pub const InstrMov = union(enum) {
     }
 
     pub fn decode(iter: *instr.ByteIter) !InstrMov {
-        const opcode = instr.InstrDecoder.decode_instr_enum(OpcodeMov, iter.peek_unchecked(), 0)
-            orelse return instr.DecodeError.InvalidOpcode;
+        const opcode = try instr.InstrDecoder.decode_instr_enum(OpcodeMov, iter.peek_unchecked(), 0);
 
         return switch (opcode) {
             .register_or_memory_to_or_from_register => InstrMov.decode_register_or_memory_to_or_from_register(iter),
@@ -138,12 +147,24 @@ pub const InstrMov = union(enum) {
         const b1 = try iter.try_next();
         const b2 = try iter.try_next();
 
-        const d   = instr.InstrDecoder.decode_instr_enum(instr.Direction, b1, 6) orelse return instr.DecodeError.InvalidEncoding;
-        const w   = instr.InstrDecoder.decode_instr_enum(instr.Width,     b1, 7) orelse return instr.DecodeError.InvalidEncoding;
-        const mod = instr.InstrDecoder.decode_instr_enum(instr.MemMode,   b2, 0) orelse return instr.DecodeError.InvalidEncoding;
+        const d   = try instr.InstrDecoder.decode_instr_enum(instr.Direction, b1, 6);
+        const w   = try instr.InstrDecoder.decode_instr_enum(instr.Width,     b1, 7);
+        const mod = try instr.InstrDecoder.decode_instr_enum(instr.MemMode,   b2, 0);
 
-        const reg = try instr.Register.decode(b2, 2, w);
-        const rm  = try instr.Register.decode(b2, 5, w);
+        const reg  = try instr.Register.decode(b2, 2, w);
+        const rm   = try instr.RegisterMemory.decode(b2, 5, mod, w);
+        const disp = switch (mod) {
+            .memory_mode_no_displacement     => null,
+            .memory_mode_8_bit_displacement  => try instr.Scalar.decode(iter, true),
+            .memory_mode_16_bit_displacement => try instr.Scalar.decode(iter, false),
+            .register_mode_no_displacement   => blk: {
+                if (rm.is_effectife_address_calc(.bp_or_direct_address)) {
+                    break :blk try instr.Scalar.decode(iter, w.is_byte());
+                } else {
+                    break :blk null;
+                }
+            }
+        };
 
         return InstrMov { .register_or_memory_to_or_from_register = .{
             .d = d,
@@ -151,16 +172,16 @@ pub const InstrMov = union(enum) {
             .mod = mod,
             .reg = reg,
             .rm  = rm,
-            .disp = null,
+            .disp = disp,
         } };
     }
 
     fn decode_immediate_to_registe(iter: *instr.ByteIter) !InstrMov {
         const b1 = try iter.try_next();
 
-        const w    = instr.InstrDecoder.decode_instr_enum(instr.Width, b1, 4) orelse return instr.DecodeError.InvalidEncoding;
+        const w    = try instr.InstrDecoder.decode_instr_enum(instr.Width, b1, 4);
         const reg  = try instr.Register.decode(b1, 5, w);
-        const data = try instr.Scalar.decode(iter, w);
+        const data = try instr.Scalar.decode(iter, w.is_byte());
 
         return InstrMov { .immediate_to_register = .{
             .w    = w,
