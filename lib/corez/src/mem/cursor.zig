@@ -38,12 +38,12 @@ pub fn Cursor(comptime T: type) type {
             self.ptr  += slice.len;
         }
 
-        pub fn push(self: *Self, slice: []const T) void {
-            assert((self.offset + slice.len) <= self.capacity);
-
-            @memcpy(self.ptr, slice);
-            self.offset += slice.len;
-            self.ptr  += slice.len;
-        }
+        // pub fn push(self: *Self, slice: []const T) void {
+        //     assert((self.offset + slice.len) <= self.capacity);
+        //
+        //     @memcpy(self.ptr, slice);
+        //     self.offset += slice.len;
+        //     self.ptr  += slice.len;
+        // }
     };
 }
