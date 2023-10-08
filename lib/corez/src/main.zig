@@ -3,3 +3,4 @@ pub const string       = @import("string.zig");
 pub const utils        = @import("utils.zig");
 pub const mem          = @import("mem.zig");
 pub const log          = @import("log.zig");
+pub const math         = @import("math.zig");

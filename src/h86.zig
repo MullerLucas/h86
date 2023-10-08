@@ -3,9 +3,10 @@ pub const std    = @import("std");
 pub const corez  = @import("corez");
 pub const Logger = corez.log.Scoped(.h86);
 
-const memory  = @import("memory.zig");
-const decoder = @import("decoder.zig");
-const instr   = @import("instr.zig");
+pub const memory   = @import("memory.zig");
+pub const decoder  = @import("decoder.zig");
+pub const instr    = @import("instr.zig");
+pub const encoding = @import("encoding.zig");
 
 
 pub const Emulator = struct {
@@ -29,5 +30,9 @@ pub const Emulator = struct {
 
         try stdout.print("bits 16\n\n", .{});
         try bw.flush();
+
+        for (encoding.encodings) |enc| {
+            Logger.debug("{}\n", .{enc});
+        }
     }
 };

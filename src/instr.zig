@@ -1,4 +1,4 @@
-pub const Register = enum {
+pub const RegisterType = enum {
     // none,
     a,
     b,
@@ -18,7 +18,7 @@ pub const Register = enum {
 };
 
 pub const RegisterAccess = struct {
-    reg:    Register,
+    reg:    RegisterType,
     offset: u8,
     count:  u8,
 };
@@ -33,7 +33,7 @@ pub const OperationType = enum {
 
 // ----------------------------------------------
 
-pub const EffectiveAddressOpType = enum {
+pub const EffectiveAddressOperationType = enum {
     direct,
 
     bx_si,
@@ -47,8 +47,8 @@ pub const EffectiveAddressOpType = enum {
 };
 
 pub const EffectiveAddressExpression = struct {
-    reg:  Register,
-    op:   EffectiveAddressOpType,
+    reg:  RegisterType,
+    op:   EffectiveAddressOperationType,
     disp: u16,
 };
 
@@ -60,26 +60,6 @@ pub const Operand = union(enum) {
     memory:    RegisterAccess,
     immediate: u16,
     // relativeImmediate,
-};
-
-// ----------------------------------------------
-
-
-pub const RawBitUsage = enum {
-    literal,
-    mod,
-    rm,
-};
-
-pub const RawBits = struct {
-    usage: RawBitUsage,
-    count: u8,
-    shift: u8,
-    value: ?u8,
-};
-
-pub const RawFormat = struct {
-    op: OperationType,
 };
 
 // ----------------------------------------------
