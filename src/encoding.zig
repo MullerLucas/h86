@@ -23,7 +23,7 @@ pub const EncBitUsage = enum {
                     .usage = .literal,
                     .count = corez.math.count_bits(data[0]),
                     .shift = 0,
-                    .value = 0,
+                    .value = data[0],
                 };
             },
             .mod => EncBits {
@@ -67,21 +67,29 @@ pub const EncBits = struct {
     value: u8,
 };
 
-pub const EncFormat = struct {
+pub const EncRule = struct {
     op:   instr.OperationType,
     bits: [16]EncBits,
+    len:  usize,
 
-    fn from_literal(op: instr.OperationType, raw_bits: anytype) EncFormat {
+    fn from_literal(op: instr.OperationType, raw_bits: anytype) EncRule {
         var bits: [16]EncBits = undefined;
 
+        var len = 0;
         for (raw_bits, 0..) |rb, i| {
             bits[i] = rb;
+            len += 1;
         }
 
-        return EncFormat {
+        return EncRule {
             .op   = op,
             .bits = raw_bits,
+            .len  = len,
         };
+    }
+
+    pub fn as_slice(self: *const EncRule) []const EncBits {
+        return self.bits[0..self.len];
     }
 };
 
@@ -90,9 +98,9 @@ pub const EncFormat = struct {
 
 const EBU = EncBitUsage;
 
-pub const encodings = [_]EncFormat {
+pub const rules = [_]EncRule {
     // Register/memory to/from register
-    EncFormat.from_literal(.mov, .{
+    EncRule.from_literal(.mov, .{
         EBU.literal.bits(.{0b100010}),
         EBU.d.bits(.{}),
         EBU.w.bits(.{}),

@@ -8,21 +8,29 @@ pub const decoder  = @import("decoder.zig");
 pub const instr    = @import("instr.zig");
 pub const encoding = @import("encoding.zig");
 
+pub const mem_usage  = 1024 * 1024;
+pub const MemoryEmu  = memory.Memory(mem_usage);
+
+pub const H86Error = error {
+    InvalidEncoding,
+    InvalidData,
+};
 
 pub const Emulator = struct {
     pub fn disassemble(alloc: std.mem.Allocator, path: []const u8) !void {
         Logger.info("disassemble file '{s}'\n", .{path});
 
+        for (encoding.rules) |enc| {
+            Logger.debug("{}\n\n", .{enc});
+        }
+
         var mem = blk: {
-            const Memory = memory.Memory(1024 * 1024);
-            var mem = try alloc.create(Memory);
-            mem.* = try Memory.from_file(path);
+            var mem = try alloc.create(MemoryEmu);
+            mem.* = try MemoryEmu.from_file(path);
             break :blk mem;
         };
         defer alloc.destroy(mem);
-
-        const iter = mem.iter();
-        _ = iter;
+        var iter = mem.iter();
 
         const stdout_file = std.io.getStdOut().writer();
         var bw = std.io.bufferedWriter(stdout_file);
@@ -31,8 +39,6 @@ pub const Emulator = struct {
         try stdout.print("bits 16\n\n", .{});
         try bw.flush();
 
-        for (encoding.encodings) |enc| {
-            Logger.debug("{}\n", .{enc});
-        }
+        try decoder.Decoder.decode(&iter);
     }
 };
